@@ -16,7 +16,8 @@
  *   --help, -h     Show help
  */
 
-import { writeFileSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
+import { dirname } from 'path';
 import { SpintaClient } from '../client/SpintaClient.js';
 import { crawlNamespace, fetchAllModelsMetadata } from './crawler.js';
 import { generateDeclarationFile } from './generator.js';
@@ -126,6 +127,8 @@ async function main(): Promise<void> {
 
     // Write output
     if (options.output !== undefined) {
+      // Ensure directory exists
+      mkdirSync(dirname(options.output), { recursive: true });
       writeFileSync(options.output, output, 'utf-8');
       console.error(`\n✅ Written to ${options.output}`);
     } else {
