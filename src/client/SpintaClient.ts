@@ -248,19 +248,94 @@ export class SpintaClient {
    */
   async listNamespace(namespace: string): Promise<NamespaceItem[]> {
     const path = `/${namespace}/:ns`;
-    const response = await this.request<NamespaceListResponse>(path);
-    return response._data;
+    const response = await this.request<RawNamespaceResponse>(path);
+
+    // Transform API response to NamespaceItem format
+    // API returns: { name: "path/:ns" or "path/Model", title, description }
+    return response._data.map((item): NamespaceItem => {
+      const isNamespace = item.name.endsWith('/:ns');
+      const cleanPath = isNamespace
+        ? item.name.slice(0, -4) // Remove '/:ns' suffix
+        : item.name;
+
+      return {
+        _id: cleanPath,
+        _type: isNamespace ? 'ns' : 'model',
+        title: item.title,
+      };
+    });
+  }
+
+  /**
+   * Discover all models within a namespace (recursively)
+   *
+   * Traverses the namespace hierarchy and returns all model paths found.
+   * Useful for exploring what data is available in a given area.
+   *
+   * @param namespace - Starting namespace path (e.g., 'datasets/gov/rc')
+   * @returns Array of discovered models with path and title
+   *
+   * @example
+   * ```typescript
+   * // Find all models in the Registry Centre
+   * const models = await client.discoverModels('datasets/gov/rc');
+   * console.log(`Found ${models.length} models`);
+   * for (const model of models) {
+   *   console.log(`- ${model.title ?? model.path}`);
+   * }
+   * ```
+   */
+  async discoverModels(namespace: string): Promise<DiscoveredModel[]> {
+    const models: DiscoveredModel[] = [];
+
+    const traverse = async (ns: string): Promise<void> => {
+      const items = await this.listNamespace(ns);
+
+      for (const item of items) {
+        if (item._type === 'model') {
+          models.push({
+            path: item._id,
+            title: item.title,
+            namespace: ns,
+          });
+        } else {
+          // Recurse into sub-namespace
+          await traverse(item._id);
+        }
+      }
+    };
+
+    await traverse(namespace);
+    return models;
   }
 }
 
-/** Namespace item type */
+/** Discovered model from namespace traversal */
+export interface DiscoveredModel {
+  /** Full model path (e.g., 'datasets/gov/rc/ar/savivaldybe/Savivaldybe') */
+  path: string;
+  /** Human-readable title from API metadata */
+  title?: string;
+  /** Parent namespace path */
+  namespace: string;
+}
+
+/** Raw API response item from /:ns endpoint */
+interface RawNamespaceItem {
+  name: string;
+  title: string;
+  description: string;
+}
+
+/** Raw API response from /:ns endpoint */
+interface RawNamespaceResponse {
+  _data: RawNamespaceItem[];
+}
+
+/** Namespace item type (transformed) */
 interface NamespaceItem {
   _id: string;
   _type: 'ns' | 'model';
   title?: string;
 }
 
-/** Namespace list response */
-interface NamespaceListResponse {
-  _data: NamespaceItem[];
-}

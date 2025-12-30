@@ -3,7 +3,7 @@
  */
 
 export { SpintaClient } from './SpintaClient.js';
-export { TokenCache } from './auth.js';
+export type { DiscoveredModel } from './SpintaClient.js';
 export {
   SpintaError,
   AuthenticationError,

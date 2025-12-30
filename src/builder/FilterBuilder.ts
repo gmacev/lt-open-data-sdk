@@ -110,15 +110,19 @@ export class FilterBuilder<T> implements FilterBuilderInterface<T> {
 
 /**
  * Formats a value for use in a Spinta query
+ * Values are URL-encoded to ensure safe transport in URLs
  */
 function formatValue(value: unknown): string {
   if (value === null) {
     return 'null';
   }
   if (typeof value === 'string') {
-    // Escape quotes in strings
+    // 1. Escape internal quotes
     const escaped = value.replace(/"/g, '\\"');
-    return `"${escaped}"`;
+    // 2. Wrap in quotes
+    const quoted = `"${escaped}"`;
+    // 3. Encode the final token so it survives URL transport
+    return encodeURIComponent(quoted);
   }
   if (typeof value === 'boolean') {
     return value ? 'true' : 'false';
@@ -127,14 +131,15 @@ function formatValue(value: unknown): string {
     return String(value);
   }
   if (value instanceof Date) {
-    return `"${value.toISOString()}"`;
+    // Encode ISO date string for URL safety
+    return encodeURIComponent(`"${value.toISOString()}"`);
   }
-  // For other objects, use JSON.stringify to avoid [object Object]
+  // For other objects, use JSON.stringify and encode
   if (typeof value === 'object') {
-    return JSON.stringify(value);
+    return encodeURIComponent(JSON.stringify(value));
   }
   // For symbols, functions, or other types - stringify safely
-  return `"${typeof value === 'symbol' ? value.toString() : 'unknown'}"`;
+  return encodeURIComponent(`"${typeof value === 'symbol' ? value.toString() : 'unknown'}"`);
 }
 
 /**

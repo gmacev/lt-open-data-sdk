@@ -16,6 +16,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "postbuild": "node -e \"try{require('fs').chmodSync('dist/cli/index.js',0o755)}catch{}\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src",

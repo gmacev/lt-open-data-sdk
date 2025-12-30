@@ -28,23 +28,6 @@ export interface NamespaceEntry {
   title?: string;
 }
 
-/** API response item from namespace endpoint */
-interface ApiNamespaceItem {
-  _id: string;
-  _type: string;
-  title?: string;
-  description?: string;
-  type?: string;
-  ref?: string;
-}
-
-/** API response from namespace endpoint */
-interface ApiNamespaceResponse {
-  _data?: ApiNamespaceItem[];
-  title?: string;
-  description?: string;
-}
-
 /**
  * Crawl a namespace and discover all models
  *
@@ -74,61 +57,99 @@ export async function crawlNamespace(
   return models;
 }
 
+/** Data sample response from API */
+interface DataSampleResponse {
+  _data: Record<string, unknown>[];
+}
+
 /**
- * Fetch model metadata including properties
+ * Infer type from a JavaScript value
+ */
+function inferType(value: unknown): string {
+  if (value === null) {
+    return 'unknown';
+  }
+  if (typeof value === 'string') {
+    // Check for ISO date format
+    if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+      return value.includes('T') ? 'datetime' : 'date';
+    }
+    // Check for UUID (ref)
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+      return 'ref';
+    }
+    return 'string';
+  }
+  if (typeof value === 'number') {
+    return Number.isInteger(value) ? 'integer' : 'number';
+  }
+  if (typeof value === 'boolean') {
+    return 'boolean';
+  }
+  if (Array.isArray(value)) {
+    return 'array';
+  }
+  if (typeof value === 'object') {
+    // Check for ref object with _id
+    if ('_id' in value && typeof (value as Record<string, unknown>)._id === 'string') {
+      return 'ref';
+    }
+    return 'object';
+  }
+  return 'unknown';
+}
+
+/**
+ * Fetch model metadata by sampling actual data
+ *
+ * Since the :schema endpoint requires authentication, we infer types
+ * from actual data by fetching a sample record.
  *
  * @param _client - SpintaClient instance (unused, using direct fetch)
  * @param modelPath - Full model path
- * @returns Model metadata with properties
+ * @returns Model metadata with inferred properties
  */
 export async function fetchModelMetadata(
   _client: SpintaClient,
   modelPath: string
 ): Promise<ModelMetadata> {
-  // Fetch model schema from :ns endpoint on the model
-  // This returns the model definition with properties
-  const url = `https://get.data.gov.lt/${modelPath}/:ns`;
+  // Fetch one record to infer property types
+  const url = `https://get.data.gov.lt/${modelPath}?limit(1)`;
 
   try {
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch model metadata: ${String(response.status)}`);
+      throw new Error(`Failed to fetch model data: ${String(response.status)}`);
     }
 
-    const data = (await response.json()) as ApiNamespaceResponse;
+    const data = (await response.json()) as DataSampleResponse;
     const properties: PropertyMetadata[] = [];
 
-    // Parse properties from the response
-    if (data._data !== undefined) {
-      for (const item of data._data) {
-        // Extract property name from path
-        const parts = item._id.split('/');
-        const propertyName = parts[parts.length - 1] ?? item._id;
-
-        // Skip metadata entries that aren't properties
-        if (item._type === 'property' || !item._type.startsWith('ns')) {
-          properties.push({
-            name: propertyName,
-            type: item.type ?? 'unknown',
-            ref: item.ref,
-            title: item.title,
-            description: item.description,
-          });
+    // Infer properties from first record
+    const sample = data._data[0];
+    if (sample !== undefined) {
+      for (const [key, value] of Object.entries(sample)) {
+        // Skip internal Spinta fields
+        if (key.startsWith('_')) {
+          continue;
         }
+
+        properties.push({
+          name: key,
+          type: inferType(value),
+        });
       }
     }
 
     return {
       path: modelPath,
-      title: data.title,
-      description: data.description,
       properties,
     };
   } catch (error) {
     // Return minimal metadata on error
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`Warning: Could not fetch full metadata for ${modelPath}: ${errorMessage}`);
+    console.error(`Warning: Could not fetch data for ${modelPath}: ${errorMessage}`);
     return {
       path: modelPath,
       properties: [],
