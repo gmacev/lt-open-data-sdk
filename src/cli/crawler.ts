@@ -113,8 +113,9 @@ export async function fetchModelMetadata(
   _client: SpintaClient,
   modelPath: string
 ): Promise<ModelMetadata> {
-  // Fetch one record to infer property types
-  const url = `https://get.data.gov.lt/${modelPath}?limit(1)`;
+  // Fetch sample records to infer property types
+  // Limit to 10 records to increase chance of finding non-null values
+  const url = `https://get.data.gov.lt/${modelPath}?limit(10)`;
 
   try {
     const response = await fetch(url);
@@ -125,21 +126,54 @@ export async function fetchModelMetadata(
 
     const data = (await response.json()) as DataSampleResponse;
     const properties: PropertyMetadata[] = [];
+    const propertyTypes = new Map<string, Set<string>>();
 
-    // Infer properties from first record
-    const sample = data._data[0];
-    if (sample !== undefined) {
-      for (const [key, value] of Object.entries(sample)) {
+    // Scan all fetched records
+    for (const record of data._data) {
+      for (const [key, value] of Object.entries(record)) {
         // Skip internal Spinta fields
         if (key.startsWith('_')) {
           continue;
         }
 
-        properties.push({
-          name: key,
-          type: inferType(value),
-        });
+        const type = inferType(value);
+        if (!propertyTypes.has(key)) {
+          propertyTypes.set(key, new Set());
+        }
+        propertyTypes.get(key)?.add(type);
       }
+    }
+
+    // Resolve final types
+    for (const [key, types] of propertyTypes.entries()) {
+      let finalType = 'unknown';
+
+      // If we have concrete types, prioritize them over 'unknown'
+      if (types.size > 0) {
+        types.delete('unknown'); // Remove unknown from consideration if we have other types
+      }
+
+      if (types.size === 1) {
+        // Single concrete type found
+        finalType = types.values().next().value ?? 'unknown';
+      } else if (types.size > 1) {
+        // Multiple types found
+        // Check for specific priority overrides
+        if (types.has('ref')) finalType = 'ref';
+        else if (types.has('string')) finalType = 'string'; // If mixed with string, it's a string
+        else if (types.has('datetime')) finalType = 'datetime';
+        else if (types.has('date')) finalType = 'date';
+        else if (types.has('number') || types.has('integer')) finalType = 'number';
+        else finalType = 'string'; // Fallback
+      } else {
+        // Only had unknown/null
+        finalType = 'unknown';
+      }
+
+      properties.push({
+        name: key,
+        type: finalType,
+      });
     }
 
     return {
