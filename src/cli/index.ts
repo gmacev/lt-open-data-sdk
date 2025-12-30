@@ -101,6 +101,12 @@ async function main(): Promise<void> {
 
   console.error(`🔍 Discovering models in ${options.namespace}...`);
 
+  if (options.namespace.startsWith('http://') || options.namespace.startsWith('https://')) {
+      console.error(`\n❌ Error: Namespace should be a path (e.g. "datasets/gov/rc"), not a URL.`);
+      console.error(`   Use --base-url to change the API endpoint if needed.`);
+      process.exit(1);
+  }
+
   const client = new SpintaClient({ baseUrl: options.baseUrl });
 
   try {
