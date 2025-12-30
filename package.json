@@ -1,5 +1,5 @@
 {
-  "name": "lt-data-sdk",
+  "name": "lt-open-data-sdk",
   "version": "1.0.0",
   "description": "TypeScript SDK for the Lithuanian Open Data platform (data.gov.lt)",
   "type": "module",
@@ -40,12 +40,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gmacev/lt-data-sdk.git"
+    "url": "git+https://github.com/gmacev/lt-open-data-sdk.git"
   },
   "bugs": {
-    "url": "https://github.com/gmacev/lt-data-sdk/issues"
+    "url": "https://github.com/gmacev/lt-open-data-sdk/issues"
   },
-  "homepage": "https://github.com/gmacev/lt-data-sdk#readme",
+  "homepage": "https://github.com/gmacev/lt-open-data-sdk#readme",
   "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^9.39.2",

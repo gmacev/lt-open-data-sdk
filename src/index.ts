@@ -1,11 +1,11 @@
 /**
- * lt-data-sdk - TypeScript SDK for the Lithuanian Open Data platform (data.gov.lt)
+ * lt-open-data-sdk - TypeScript SDK for the Lithuanian Open Data platform (data.gov.lt)
  *
  * @packageDocumentation
  *
  * @example
  * ```typescript
- * import { SpintaClient, QueryBuilder } from 'lt-data-sdk';
+ * import { SpintaClient, QueryBuilder } from 'lt-open-data-sdk';
  *
  * const client = new SpintaClient();
  *

@@ -1,4 +1,4 @@
-# lt-data-sdk
+# lt-open-data-sdk
 
 TypeScript SDK for the **Lithuanian Open Data platform** ([data.gov.lt](https://data.gov.lt)) powered by the Spinta engine.
 
@@ -12,7 +12,7 @@ TypeScript SDK for the **Lithuanian Open Data platform** ([data.gov.lt](https://
 ## Installation
 
 ```bash
-npm install lt-data-sdk
+npm install lt-open-data-sdk
 ```
 
 Requires Node.js ≥18 (uses native `fetch`).
@@ -20,7 +20,7 @@ Requires Node.js ≥18 (uses native `fetch`).
 ## Quick Start
 
 ```typescript
-import { SpintaClient, QueryBuilder } from "lt-data-sdk";
+import { SpintaClient, QueryBuilder } from "lt-open-data-sdk";
 
 const client = new SpintaClient();
 
@@ -179,7 +179,7 @@ The SDK provides full TypeScript support. The workflow is:
 2. **Import and use** in your code:
 
    ```typescript
-   import { SpintaClient } from "lt-data-sdk";
+   import { SpintaClient } from "lt-open-data-sdk";
    import type { GovRcArSavivaldybe_Savivaldybe } from "./types/savivaldybe";
 
    const client = new SpintaClient();
@@ -316,7 +316,7 @@ import {
   NotFoundError,
   AuthenticationError,
   ValidationError,
-} from "lt-data-sdk";
+} from "lt-open-data-sdk";
 
 try {
   const data = await client.getOne("datasets/example", "invalid-id");

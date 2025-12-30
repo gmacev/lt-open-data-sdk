@@ -3,7 +3,7 @@
  *
  * @example
  * ```typescript
- * import { SpintaClient, QueryBuilder } from 'lt-data-sdk';
+ * import { SpintaClient, QueryBuilder } from 'lt-open-data-sdk';
  *
  * const client = new SpintaClient();
  *
