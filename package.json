@@ -33,7 +33,19 @@
     "api-client",
     "typescript"
   ],
-  "author": "",
+  "author": {
+    "name": "Giedrius Macevičius",
+    "email": "gmacev@gmail.com",
+    "url": "https://github.com/gmacev/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gmacev/lt-data-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gmacev/lt-data-sdk/issues"
+  },
+  "homepage": "https://github.com/gmacev/lt-data-sdk#readme",
   "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^9.39.2",
