@@ -166,6 +166,36 @@ Returns: `{ path, title?, namespace }[]`
 
 ---
 
+## Type Safety & Autocomplete
+
+The SDK provides full TypeScript support. The workflow is:
+
+1. **Generate types** for your dataset:
+
+   ```bash
+   npx lt-gen datasets/gov/rc/ar/savivaldybe -o ./types/savivaldybe.d.ts
+   ```
+
+2. **Import and use** in your code:
+
+   ```typescript
+   import { SpintaClient } from "lt-data-sdk";
+   import type { GovRcArSavivaldybe_Savivaldybe } from "./types/savivaldybe";
+
+   const client = new SpintaClient();
+
+   // Pass the type to the method to get full autocomplete!
+   const data = await client.getAll<GovRcArSavivaldybe_Savivaldybe>(
+     "datasets/gov/rc/ar/savivaldybe/Savivaldybe"
+   );
+
+   // ✅ TypeScript knows these fields exist:
+   console.log(data[0].pavadinimas); // string
+   console.log(data[0].sav_kodas); // number
+   ```
+
+---
+
 ## Pagination
 
 The API uses cursor-based pagination with `_page.next` tokens.
