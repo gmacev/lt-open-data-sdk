@@ -661,4 +661,39 @@ describe('SpintaClient', () => {
       expect(result[2]._id).toBeUndefined();
     });
   });
+
+  describe('getLastUpdatedAt()', () => {
+    it('should return Date from latest change timestamp', async () => {
+      const mockResponse = {
+        _data: [
+          { _cid: 123, _created: '2025-01-01T12:30:00.000Z', _op: 'update' },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await client.getLastUpdatedAt('test/Model');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://get.data.gov.lt/test/Model/:changes/-1',
+        expect.anything()
+      );
+      expect(result).toBeInstanceOf(Date);
+      expect(result?.toISOString()).toBe('2025-01-01T12:30:00.000Z');
+    });
+
+    it('should return null when no changes exist', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ _data: [] }),
+      });
+
+      const result = await client.getLastUpdatedAt('test/Model');
+
+      expect(result).toBeNull();
+    });
+  });
 });

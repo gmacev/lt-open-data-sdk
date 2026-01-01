@@ -163,6 +163,20 @@ if (latest) {
 // Returns: ChangeEntry | null
 ```
 
+#### `getLastUpdatedAt(model)` — Get last update timestamp
+
+Convenience method for cache invalidation and freshness indicators.
+
+```typescript
+const lastUpdate = await client.getLastUpdatedAt("datasets/gov/uzt/ldv/Vieta");
+if (lastUpdate) {
+  console.log("Last updated:", lastUpdate.toISOString());
+  // Check if data is stale (e.g., older than 1 hour)
+  const isStale = Date.now() - lastUpdate.getTime() > 3600000;
+}
+// Returns: Date | null
+```
+
 #### `getChanges(model, sinceId?, limit?)` — Fetch changes
 
 Returns changes since a given change ID.

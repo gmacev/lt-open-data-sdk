@@ -340,6 +340,26 @@ export class SpintaClient {
   }
 
   /**
+   * Get the timestamp of the last update to a model
+   *
+   * Convenience method that returns when the dataset was last modified.
+   * Useful for cache invalidation, freshness indicators, or conditional fetching.
+   *
+   * @param model - Full model path (e.g., 'datasets/gov/example/City')
+   * @returns Date of last update, or null if no changes exist
+   *
+   * @example
+   * const lastUpdate = await client.getLastUpdatedAt('datasets/gov/example/City');
+   * if (lastUpdate) {
+   *   console.log('Last updated:', lastUpdate.toISOString());
+   * }
+   */
+  async getLastUpdatedAt(model: string): Promise<Date | null> {
+    const latest = await this.getLatestChange(model);
+    return latest ? new Date(latest._created) : null;
+  }
+
+  /**
    * Get changes since a specific change ID
    *
    * Returns a log of all data modifications (insert, update, delete) since

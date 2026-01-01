@@ -1,6 +1,6 @@
 {
   "name": "lt-open-data-sdk",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "TypeScript SDK for the Lithuanian Open Data platform (data.gov.lt)",
   "type": "module",
   "main": "dist/index.js",
