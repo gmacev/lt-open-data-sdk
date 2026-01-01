@@ -127,6 +127,8 @@ for await (const municipality of client.stream(
 }
 ```
 
+> ⚠️ **Do not use `.select()` with `stream()`**. The API does not return pagination tokens when field projection is used, causing the stream to stop after the first page (100 items).
+
 ### Discovery
 
 #### `listNamespace(namespace)` — Browse datasets

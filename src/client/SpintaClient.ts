@@ -166,6 +166,10 @@ export class SpintaClient {
    * using the `_page.next` token. Validates token before each page fetch to
    * avoid mid-stream auth failures on large datasets.
    *
+   * **Warning**: Do NOT use `.select()` with `stream()`. The data.gov.lt API
+   * does not return pagination tokens when field projection is used, causing
+   * the stream to stop after the first page.
+   *
    * @param model - Full model path
    * @param query - Optional query builder (should include limit for page size)
    * @yields Objects one at a time with metadata
