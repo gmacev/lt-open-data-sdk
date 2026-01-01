@@ -32,6 +32,8 @@ import type {
   CountResponse,
   ChangeEntry,
   ChangesResponse,
+  SummaryBin,
+  SummaryResponse,
 } from './types.js';
 import { TokenCache } from './auth.js';
 import { handleErrorResponse } from './errors.js';
@@ -413,6 +415,34 @@ export class SpintaClient {
       // If we got fewer than requested, we've reached the end
       hasMore = changes.length >= pageSize;
     }
+  }
+
+  /**
+   * Get histogram/distribution summary for a numeric field
+   *
+   * Returns binned counts showing the distribution of values for a field.
+   * Useful for data exploration, profiling, and visualization.
+   *
+   * @param model - Full model path (e.g., 'datasets/gov/example/City')
+   * @param field - Numeric field to summarize (e.g., 'population')
+   * @returns Array of bins with value ranges and counts
+   *
+   * @example
+   * const histogram = await client.getSummary(
+   *   'datasets/gov/rc/ar/savivaldybe/Savivaldybe',
+   *   'sav_kodas'
+   * );
+   * for (const bin of histogram) {
+   *   console.log(`Value ~${bin.bin}: ${bin.count} records`);
+   * }
+   */
+  async getSummary(
+    model: string,
+    field: string
+  ): Promise<SummaryBin[]> {
+    const path = `/${model}/:summary/${field}`;
+    const response = await this.request<SummaryResponse>(path);
+    return response._data;
   }
 }
 

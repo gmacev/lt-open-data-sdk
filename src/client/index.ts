@@ -21,4 +21,5 @@ export type {
   SpintaErrorResponse,
   NamespaceItem,
   NamespaceResponse,
+  SummaryBin,
 } from './types.js';
