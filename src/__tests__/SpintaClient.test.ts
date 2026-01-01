@@ -483,4 +483,153 @@ describe('SpintaClient', () => {
         .toThrow(SpintaError);
     });
   });
+
+  describe('getLatestChange()', () => {
+    it('should fetch latest change from /:changes/-1 endpoint', async () => {
+      const mockChange = {
+        _cid: 12345,
+        _created: '2024-01-15T10:00:00Z',
+        _op: 'insert',
+        _txn: 'tx123',
+        _revision: 'rev456',
+        _id: 'abc-123',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ _data: [mockChange] }),
+      });
+
+      const result = await client.getLatestChange('test/Model');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://get.data.gov.lt/test/Model/:changes/-1',
+        expect.anything()
+      );
+      expect(result).toEqual(mockChange);
+      expect(result?._cid).toBe(12345);
+    });
+
+    it('should return null when no changes exist', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: async () => '{}',
+      });
+
+      const result = await client.getLatestChange('test/Model');
+      expect(result).toBeNull();
+    });
+
+    it('should return null when _data is empty', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ _data: [] }),
+      });
+
+      const result = await client.getLatestChange('test/Model');
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getChanges()', () => {
+    it('should fetch changes since a given ID', async () => {
+      const mockResponse = {
+        _data: [
+          { _cid: 101, _op: 'insert', _id: 'a' },
+          { _cid: 102, _op: 'update', _id: 'b' },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await client.getChanges('test/Model', 100, 50);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://get.data.gov.lt/test/Model/:changes/100?limit(50)',
+        expect.anything()
+      );
+      expect(result).toHaveLength(2);
+      expect(result[0]._cid).toBe(101);
+    });
+
+    it('should default sinceId to 0', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ _data: [] }),
+      });
+
+      await client.getChanges('test/Model');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://get.data.gov.lt/test/Model/:changes/0?limit(100)',
+        expect.anything()
+      );
+    });
+
+    it('should default limit to 100', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ _data: [] }),
+      });
+
+      await client.getChanges('test/Model', 500);
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://get.data.gov.lt/test/Model/:changes/500?limit(100)',
+        expect.anything()
+      );
+    });
+  });
+
+  describe('streamChanges()', () => {
+    it('should yield all changes with automatic pagination', async () => {
+      // First page
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          _data: [
+            { _cid: 1, _op: 'insert' },
+            { _cid: 2, _op: 'insert' },
+          ],
+        }),
+      });
+      // Second page (less than page size = end)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          _data: [
+            { _cid: 3, _op: 'update' },
+          ],
+        }),
+      });
+
+      const changes = [];
+      for await (const change of client.streamChanges('test/Model', 0, 2)) {
+        changes.push(change);
+      }
+
+      expect(changes).toHaveLength(3);
+      expect(changes.map(c => c._cid)).toEqual([1, 2, 3]);
+    });
+
+    it('should stop when no more changes', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ _data: [] }),
+      });
+
+      const changes = [];
+      for await (const change of client.streamChanges('test/Model', 1000)) {
+        changes.push(change);
+      }
+
+      expect(changes).toHaveLength(0);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+  });
 });

@@ -13,6 +13,7 @@ import type {
   FilterExpression,
   ComparisonOperator,
   StringOperator,
+  ArrayOperator,
 } from './types.js';
 
 /**
@@ -97,6 +98,27 @@ class FieldFilter implements FieldFilterInterface {
   startswith(value: string): FilterExpressionBuilder {
     return this.stringOp('startswith', value);
   }
+
+  endswith(value: string): FilterExpressionBuilder {
+    return this.stringOp('endswith', value);
+  }
+
+  private arrayOp(operator: ArrayOperator, values: unknown[]): FilterExpressionBuilder {
+    return createExpressionBuilder({
+      type: 'array_op',
+      field: this.fieldName,
+      operator,
+      values,
+    });
+  }
+
+  in(values: unknown[]): FilterExpressionBuilder {
+    return this.arrayOp('in', values);
+  }
+
+  notin(values: unknown[]): FilterExpressionBuilder {
+    return this.arrayOp('notin', values);
+  }
 }
 
 /**
@@ -180,6 +202,12 @@ export function filterToString(expr: FilterExpression): string {
       const value = formatValue(expr.value);
       // Use method syntax: field.contains(value)
       return `${expr.field}.${expr.operator}(${value})`;
+    }
+
+    case 'array_op': {
+      const values = expr.values.map(formatValue).join(',');
+      // Use method syntax: field.in(val1,val2) or field.notin(val1,val2)
+      return `${expr.field}.${expr.operator}(${values})`;
     }
 
     case 'and': {

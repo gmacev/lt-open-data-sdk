@@ -30,6 +30,8 @@ import type {
   SpintaObject,
   SpintaResponse,
   CountResponse,
+  ChangeEntry,
+  ChangesResponse,
 } from './types.js';
 import { TokenCache } from './auth.js';
 import { handleErrorResponse } from './errors.js';
@@ -307,6 +309,110 @@ export class SpintaClient {
 
     await traverse(namespace);
     return models;
+  }
+
+  /**
+   * Get the latest change ID for a model
+   *
+   * Useful for initializing sync - get the current position before starting.
+   *
+   * @param model - Full model path (e.g., 'datasets/gov/example/City')
+   * @returns The most recent change entry, or null if no changes exist
+   *
+   * @example
+   * const latest = await client.getLatestChange('datasets/gov/example/City');
+   * if (latest) {
+   *   console.log('Last change ID:', latest._cid);
+   * }
+   */
+  async getLatestChange<T>(model: string): Promise<(ChangeEntry<T>) | null> {
+    // Use -1 to get the most recent change (negative numbers count from end)
+    const path = `/${model}/:changes/-1`;
+    try {
+      const response = await this.request<ChangesResponse<T>>(path);
+      return response._data[0] ?? null;
+    } catch {
+      // No changes exist yet
+      return null;
+    }
+  }
+
+  /**
+   * Get changes since a specific change ID
+   *
+   * Returns a log of all data modifications (insert, update, delete) since
+   * the given change ID. Use for incremental data synchronization.
+   *
+   * @param model - Full model path
+   * @param sinceId - Change ID to start from (exclusive). Pass 0 or omit to get all changes.
+   * @param limit - Maximum number of changes to return (default: 100)
+   * @returns Array of change entries with operation type and data
+   *
+   * @example
+   * // Initial sync: get current position
+   * const latest = await client.getLatestChange('datasets/gov/example/City');
+   * let lastId = latest?._cid ?? 0;
+   *
+   * // Incremental sync: get changes since last sync
+   * const changes = await client.getChanges('datasets/gov/example/City', lastId);
+   * for (const change of changes) {
+   *   if (change._op === 'insert') {
+   *     // Handle new record
+   *   } else if (change._op === 'update' || change._op === 'patch') {
+   *     // Handle modification
+   *   } else if (change._op === 'delete') {
+   *     // Handle deletion
+   *   }
+   *   lastId = change._cid;
+   * }
+   */
+  async getChanges<T>(
+    model: string,
+    sinceId?: number,
+    limit = 100
+  ): Promise<ChangeEntry<T>[]> {
+    const changeId = sinceId ?? 0;
+    const path = `/${model}/:changes/${String(changeId)}`;
+    const queryString = `?limit(${String(limit)})`;
+    const response = await this.request<ChangesResponse<T>>(path, queryString);
+    return response._data;
+  }
+
+  /**
+   * Stream all changes since a specific ID with automatic pagination
+   *
+   * @param model - Full model path
+   * @param sinceId - Change ID to start from (exclusive)
+   * @param pageSize - Number of changes per page (default: 100)
+   * @yields Change entries one at a time
+   *
+   * @example
+   * for await (const change of client.streamChanges('datasets/gov/example/City', 0)) {
+   *   console.log(change._op, change._id);
+   * }
+   */
+  async *streamChanges<T>(
+    model: string,
+    sinceId = 0,
+    pageSize = 100
+  ): AsyncGenerator<ChangeEntry<T>, void, undefined> {
+    let lastId = sinceId;
+    let hasMore = true;
+
+    while (hasMore) {
+      const changes = await this.getChanges<T>(model, lastId, pageSize);
+      if (changes.length === 0) {
+        break;
+      }
+
+      for (const change of changes) {
+        yield change;
+        lastId = change._cid;
+      }
+
+      // If we got fewer than requested, we've reached the end
+      hasMore = changes.length >= pageSize;
+    }
   }
 }
 

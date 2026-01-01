@@ -105,3 +105,32 @@ export interface NamespaceItem {
 export interface NamespaceResponse {
   _data: NamespaceItem[];
 }
+
+/** Operation types for change entries */
+export type ChangeOperation = 'insert' | 'update' | 'patch' | 'delete';
+
+/**
+ * Change entry from the /:changes endpoint
+ * Represents a single data modification event
+ */
+export interface ChangeEntry<T> {
+  /** Change ID - monotonically increasing, use for pagination */
+  _cid: number;
+  /** Timestamp of the change (ISO 8601) */
+  _created: string;
+  /** Type of operation performed */
+  _op: ChangeOperation;
+  /** Transaction ID */
+  _txn: string;
+  /** Revision after the change */
+  _revision: string;
+  /** ID of the modified object */
+  _id: string;
+  /** The data after modification (not present for delete) */
+  _data?: T;
+}
+
+/** Response wrapper for changes endpoint */
+export interface ChangesResponse<T> {
+  _data: ChangeEntry<T>[];
+}

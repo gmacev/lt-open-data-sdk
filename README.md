@@ -68,6 +68,11 @@ const queryString = query.toQueryString();
 | `.ge(value)`       | `field>=value`            | Greater than or equal |
 | `.contains(str)`   | `field.contains("str")`   | Contains substring    |
 | `.startswith(str)` | `field.startswith("str")` | Starts with           |
+| `.endswith(str)`   | `field.endswith("str")`   | Ends with ⚠️          |
+| `.in([...])`       | `field.in(a,b,c)`         | Value in list ⚠️      |
+| `.notin([...])`    | `field.notin(a,b,c)`      | Value not in list ⚠️  |
+
+> ⚠️ `endswith`, `in`, and `notin` are documented in the Spinta spec but **not supported** by the live API yet. The SDK implements them for future compatibility.
 
 ### Combining Filters
 
@@ -86,6 +91,10 @@ const queryString = query.toQueryString();
 ))
 // Output: a>10&(b=1|b=2)
 ```
+
+### Known Limitations
+
+> ⚠️ **Boolean Filtering**: Filtering on boolean fields (e.g., `field.eq(true)`) returns "Invalid value" errors on some datasets. This is a **Spinta API limitation** related to data maturity levels - if the underlying data stores booleans as strings like `"1"`, `"taip"`, or `"yes"`, the filter engine cannot match them. The SDK correctly formats booleans as `true`/`false` per the specification.
 
 ---
 
@@ -163,6 +172,36 @@ for (const model of models) {
 ```
 
 Returns: `{ path, title?, namespace }[]`
+
+#### `getChanges(model, sinceId?, limit?)` - Fetch data changes
+
+```typescript
+// Get changes since a specific change ID
+const changes = await client.getChanges("datasets/gov/example/City", 0, 100);
+// Returns: ChangeEntry[] with _cid, _created, _op, _id, _data
+```
+
+#### `getLatestChange(model)` - Get most recent change
+
+```typescript
+const latest = await client.getLatestChange("datasets/gov/example/City");
+if (latest) {
+  console.log(`Last change: ${latest._op} at ${latest._created}`);
+}
+// Returns: ChangeEntry | null
+```
+
+#### `streamChanges(model, sinceId?, pageSize?)` - Stream all changes
+
+```typescript
+// Process all changes with automatic pagination
+for await (const change of client.streamChanges(
+  "datasets/gov/example/City",
+  0
+)) {
+  console.log(`${change._op}: ${change._id}`);
+}
+```
 
 ---
 
