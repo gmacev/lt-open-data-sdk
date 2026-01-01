@@ -33,9 +33,9 @@ import { SpintaClient, QueryBuilder } from "lt-open-data-sdk";
 
 const client = new SpintaClient();
 
-// Find all municipalities with population over 50,000
+// Find municipalities with code greater than 30
 const query = new QueryBuilder()
-  .filter((f) => f.field("gyventoju_skaicius").gt(50000))
+  .filter((f) => f.field("sav_kodas").gt(30))
   .sort("pavadinimas")
   .limit(10);
 
@@ -73,10 +73,11 @@ const client = new SpintaClient({
 
 Returns an array of records from a dataset. Use with `QueryBuilder` to filter, sort, and limit.
 
-```typescript
-const cities = await client.getAll("datasets/gov/rc/ar/miestas/Miestas");
-// Returns: [{ _id, _type, pavadinimas, ... }, ...]
-```
+````typescript
+const localities = await client.getAll(
+  "datasets/gov/rc/ar/gyvenamojivietove/GyvenamojiVietove"
+);
+// Returns: [{ _id, _type, pavadinimas, tipas, ... }, ...]
 
 > ⚠️ Returns one page only (default 100 items). Use `stream()` for all records.
 
@@ -85,11 +86,11 @@ const cities = await client.getAll("datasets/gov/rc/ar/miestas/Miestas");
 Returns a single record by its UUID.
 
 ```typescript
-const city = await client.getOne(
-  "datasets/gov/rc/ar/miestas/Miestas",
-  "abc-123-uuid"
+const locality = await client.getOne(
+  "datasets/gov/rc/ar/gyvenamojivietove/GyvenamojiVietove",
+  "b19e801d-95d9-401f-8b00-b70b5f971f0e"
 );
-```
+````
 
 #### `getAllRaw(model, query?)` — Fetch with metadata
 
@@ -105,11 +106,11 @@ const response = await client.getAllRaw("datasets/gov/rc/ar/miestas/Miestas");
 Returns the total number of records matching the query.
 
 ```typescript
-const total = await client.count("datasets/gov/rc/ar/miestas/Miestas");
+const total = await client.count("datasets/gov/rc/ar/savivaldybe/Savivaldybe");
 
 const filtered = await client.count(
-  "datasets/gov/rc/ar/miestas/Miestas",
-  new QueryBuilder().filter((f) => f.field("apskritis").eq("Vilniaus"))
+  "datasets/gov/rc/ar/savivaldybe/Savivaldybe",
+  new QueryBuilder().filter((f) => f.field("pavadinimas").contains("Vilni"))
 );
 ```
 
@@ -118,8 +119,10 @@ const filtered = await client.count(
 Async iterator that automatically handles pagination.
 
 ```typescript
-for await (const city of client.stream("datasets/gov/rc/ar/miestas/Miestas")) {
-  console.log(city.pavadinimas);
+for await (const municipality of client.stream(
+  "datasets/gov/rc/ar/savivaldybe/Savivaldybe"
+)) {
+  console.log(municipality.pavadinimas);
   // Automatically fetches next pages
 }
 ```
