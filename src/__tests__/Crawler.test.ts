@@ -140,4 +140,113 @@ describe('Crawler Type Inference', () => {
       expect.stringContaining('limit(10)')
     );
   });
+
+  describe('Geometry Detection', () => {
+    it('should detect POINT WKT as geometry', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          _data: [
+            { location: 'POINT (24.123456 54.123456)' }
+          ]
+        })
+      });
+
+      const meta = await fetchModelMetadata(client, 'test/Model');
+      const location = meta.properties.find(p => p.name === 'location');
+      expect(location?.type).toBe('geometry');
+    });
+
+    it('should detect POLYGON WKT as geometry', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          _data: [
+            { boundary: 'POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))' }
+          ]
+        })
+      });
+
+      const meta = await fetchModelMetadata(client, 'test/Model');
+      const boundary = meta.properties.find(p => p.name === 'boundary');
+      expect(boundary?.type).toBe('geometry');
+    });
+
+    it('should detect SRID-prefixed WKT as geometry', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          _data: [
+            { geo: 'SRID=4326;POINT (24.0 54.0)' }
+          ]
+        })
+      });
+
+      const meta = await fetchModelMetadata(client, 'test/Model');
+      const geo = meta.properties.find(p => p.name === 'geo');
+      expect(geo?.type).toBe('geometry');
+    });
+
+    it('should detect MULTIPOLYGON WKT as geometry', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          _data: [
+            { region: 'MULTIPOLYGON (((0 0, 1 0, 1 1, 0 1, 0 0)))' }
+          ]
+        })
+      });
+
+      const meta = await fetchModelMetadata(client, 'test/Model');
+      const region = meta.properties.find(p => p.name === 'region');
+      expect(region?.type).toBe('geometry');
+    });
+  });
+
+  describe('URL and File Detection', () => {
+    it('should detect URLs as url type', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          _data: [
+            { website: 'https://example.com/page' }
+          ]
+        })
+      });
+
+      const meta = await fetchModelMetadata(client, 'test/Model');
+      const website = meta.properties.find(p => p.name === 'website');
+      expect(website?.type).toBe('url');
+    });
+
+    it('should detect URLs with file extensions as file type', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          _data: [
+            { document: 'https://example.com/report.pdf' }
+          ]
+        })
+      });
+
+      const meta = await fetchModelMetadata(client, 'test/Model');
+      const document = meta.properties.find(p => p.name === 'document');
+      expect(document?.type).toBe('file');
+    });
+
+    it('should detect file objects as file type', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          _data: [
+            { attachment: { _id: 'file-123', _content_type: 'application/pdf' } }
+          ]
+        })
+      });
+
+      const meta = await fetchModelMetadata(client, 'test/Model');
+      const attachment = meta.properties.find(p => p.name === 'attachment');
+      expect(attachment?.type).toBe('file');
+    });
+  });
 });

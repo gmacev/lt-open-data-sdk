@@ -64,12 +64,22 @@ interface DataSampleResponse {
 
 /**
  * Infer type from a JavaScript value
+ * Enhanced to detect geometry (WKT), files, and external URLs
  */
 function inferType(value: unknown): string {
   if (value === null) {
     return 'unknown';
   }
   if (typeof value === 'string') {
+    // Check for WKT geometry formats (common in Lithuanian open data)
+    // WKT format: POINT(...), LINESTRING(...), POLYGON(...), etc.
+    if (/^(POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION)\s*\(/i.test(value)) {
+      return 'geometry';
+    }
+    // Check for SRID-prefixed WKT: SRID=4326;POINT(...)
+    if (/^SRID=\d+;/i.test(value)) {
+      return 'geometry';
+    }
     // Check for ISO date format
     if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
       return value.includes('T') ? 'datetime' : 'date';
@@ -77,6 +87,14 @@ function inferType(value: unknown): string {
     // Check for UUID (ref)
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
       return 'ref';
+    }
+    // Check for URL (file or external link)
+    if (/^https?:\/\//i.test(value)) {
+      // Files often have extensions like .pdf, .jpg, .doc, etc.
+      if (/\.\w{2,5}($|\?)/i.test(value)) {
+        return 'file';
+      }
+      return 'url';
     }
     return 'string';
   }
@@ -90,6 +108,11 @@ function inferType(value: unknown): string {
     return 'array';
   }
   if (typeof value === 'object') {
+    // Check for file object structure FIRST (has _content_type or _size)
+    // This must come before ref check since files also have _id
+    if ('_content_type' in value || '_size' in value) {
+      return 'file';
+    }
     // Check for ref object with _id
     if ('_id' in value && typeof (value as Record<string, unknown>)._id === 'string') {
       return 'ref';

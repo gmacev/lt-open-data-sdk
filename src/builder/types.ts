@@ -6,7 +6,10 @@
 export type ComparisonOperator = 'eq' | 'ne' | 'lt' | 'le' | 'gt' | 'ge';
 
 /** String-specific operators */
-export type StringOperator = 'contains' | 'startswith';
+export type StringOperator = 'contains' | 'startswith' | 'endswith';
+
+/** Array/list operators */
+export type ArrayOperator = 'in' | 'notin';
 
 /** Sort direction */
 export type SortDirection = 'asc' | 'desc';
@@ -19,7 +22,7 @@ export interface SortSpec {
 
 /** Base filter expression node */
 export interface FilterNode {
-  type: 'comparison' | 'string_op' | 'and' | 'or';
+  type: 'comparison' | 'string_op' | 'array_op' | 'and' | 'or';
 }
 
 /** Comparison filter expression */
@@ -38,6 +41,14 @@ export interface StringOpNode extends FilterNode {
   value: string;
 }
 
+/** Array operation filter expression (in, notin) */
+export interface ArrayOpNode extends FilterNode {
+  type: 'array_op';
+  field: string;
+  operator: ArrayOperator;
+  values: unknown[];
+}
+
 /** AND combination of filters */
 export interface AndNode extends FilterNode {
   type: 'and';
@@ -53,7 +64,7 @@ export interface OrNode extends FilterNode {
 }
 
 /** Union of all filter expression types */
-export type FilterExpression = ComparisonNode | StringOpNode | AndNode | OrNode;
+export type FilterExpression = ComparisonNode | StringOpNode | ArrayOpNode | AndNode | OrNode;
 
 /** Callback type for building filter expressions */
 export type FilterCallback<T> = (builder: FilterBuilderInterface<T>) => FilterExpressionBuilder;
@@ -68,6 +79,9 @@ export interface FieldFilterInterface {
   ge(value: unknown): FilterExpressionBuilder;
   contains(value: string): FilterExpressionBuilder;
   startswith(value: string): FilterExpressionBuilder;
+  endswith(value: string): FilterExpressionBuilder;
+  in(values: unknown[]): FilterExpressionBuilder;
+  notin(values: unknown[]): FilterExpressionBuilder;
 }
 
 /** Interface for building filter expressions */

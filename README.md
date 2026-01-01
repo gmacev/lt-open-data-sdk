@@ -1,13 +1,22 @@
 # lt-open-data-sdk
 
-TypeScript SDK for the **Lithuanian Open Data platform** ([data.gov.lt](https://data.gov.lt)) powered by the Spinta engine.
+A TypeScript SDK for accessing **Lithuania's Open Data Portal** ([data.gov.lt](https://data.gov.lt)).
 
-## Features
+## What is this?
 
-- 🔍 **QueryBuilder** - Fluent API for constructing DSQL queries
-- 🌐 **SpintaClient** - HTTP client with automatic pagination
-- 🛠️ **CLI Type Generator** - Generate TypeScript interfaces from live API
-- 🔐 **OAuth Support** - Client credentials authentication _(untested)_
+Lithuania publishes thousands of government datasets through its Open Data Portal, powered by the [Spinta](https://docs.data.gov.lt/projects/atviriduomenys/latest/api/) API engine. This SDK makes it easy to:
+
+- **Query data** with a fluent, type-safe API instead of crafting raw URL parameters
+- **Generate TypeScript types** from live datasets for full autocomplete support
+- **Paginate automatically** through large datasets with async iterators
+- **Track changes** for incremental data synchronization
+
+### Quick Links
+
+- [📡 API Reference](#api) - Client methods and query builder
+- [⌨️ CLI Reference](#cli) - Type generation commands
+
+---
 
 ## Installation
 
@@ -15,48 +24,190 @@ TypeScript SDK for the **Lithuanian Open Data platform** ([data.gov.lt](https://
 npm install lt-open-data-sdk
 ```
 
-Requires Node.js ≥18 (uses native `fetch`).
+Requires Node.js ≥18.
 
-## Quick Start
+## Quick Example
 
 ```typescript
 import { SpintaClient, QueryBuilder } from "lt-open-data-sdk";
 
 const client = new SpintaClient();
 
-// Fetch data with a query
+// Find municipalities with code greater than 30
 const query = new QueryBuilder()
-  .select("_id", "pavadinimas")
-  .filter((f) => f.field("sav_kodas").gt(10))
+  .filter((f) => f.field("sav_kodas").gt(30))
   .sort("pavadinimas")
   .limit(10);
 
-const data = await client.getAll(
+const municipalities = await client.getAll(
   "datasets/gov/rc/ar/savivaldybe/Savivaldybe",
   query
 );
-console.log(data);
+
+console.log(municipalities);
 ```
 
 ---
 
-## QueryBuilder
+## API
 
-Build type-safe queries with a fluent API:
+The SDK provides a `SpintaClient` for making requests and a `QueryBuilder` for constructing queries.
+
+### Client Setup
 
 ```typescript
-const query = new QueryBuilder<MyType>()
-  .select("field1", "field2") // Select specific fields
-  .filter((f) => f.field("x").eq(1)) // Add filters
-  .sort("field1") // Sort ascending
-  .sortDesc("field2") // Sort descending
-  .limit(100); // Limit results
+import { SpintaClient } from "lt-open-data-sdk";
 
-const queryString = query.toQueryString();
-// Returns: ?select(field1,field2)&x=1&sort(field1,-field2)&limit(100)
+const client = new SpintaClient();
+// Connects to https://get.data.gov.lt by default
+
+// Or specify a custom base URL:
+const client = new SpintaClient({
+  baseUrl: "https://get-test.data.gov.lt",
+});
 ```
 
-### Filter Operators
+### Data Retrieval
+
+#### `getAll(model, query?)` — Fetch records
+
+Returns an array of records from a dataset. Use with `QueryBuilder` to filter, sort, and limit.
+
+````typescript
+const localities = await client.getAll(
+  "datasets/gov/rc/ar/gyvenamojivietove/GyvenamojiVietove"
+);
+// Returns: [{ _id, _type, pavadinimas, tipas, ... }, ...]
+
+> ⚠️ Returns one page only (default 100 items). Use `stream()` for all records.
+
+#### `getOne(model, id)` — Fetch by ID
+
+Returns a single record by its UUID.
+
+```typescript
+const locality = await client.getOne(
+  "datasets/gov/rc/ar/gyvenamojivietove/GyvenamojiVietove",
+  "b19e801d-95d9-401f-8b00-b70b5f971f0e"
+);
+````
+
+#### `getAllRaw(model, query?)` — Fetch with metadata
+
+Returns the full API response including pagination info.
+
+```typescript
+const response = await client.getAllRaw("datasets/gov/rc/ar/miestas/Miestas");
+// Returns: { _type, _data: [...], _page: { next: "token" } }
+```
+
+#### `count(model, query?)` — Count records
+
+Returns the total number of records matching the query.
+
+```typescript
+const total = await client.count("datasets/gov/rc/ar/savivaldybe/Savivaldybe");
+
+const filtered = await client.count(
+  "datasets/gov/rc/ar/savivaldybe/Savivaldybe",
+  new QueryBuilder().filter((f) => f.field("pavadinimas").contains("Vilni"))
+);
+```
+
+#### `stream(model, query?)` — Iterate all records
+
+Async iterator that automatically handles pagination.
+
+```typescript
+for await (const municipality of client.stream(
+  "datasets/gov/rc/ar/savivaldybe/Savivaldybe"
+)) {
+  console.log(municipality.pavadinimas);
+  // Automatically fetches next pages
+}
+```
+
+### Discovery
+
+#### `listNamespace(namespace)` — Browse datasets
+
+Lists namespaces and models within a path.
+
+```typescript
+const items = await client.listNamespace("datasets/gov/rc");
+// Returns: [{ _id: "datasets/gov/rc/ar", _type: "ns" }, ...]
+```
+
+#### `discoverModels(namespace)` — Find all models
+
+Recursively discovers all data models in a namespace.
+
+```typescript
+const models = await client.discoverModels("datasets/gov/rc/ar");
+console.log(`Found ${models.length} models`);
+// Returns: [{ path, title, namespace }, ...]
+```
+
+### Changes API
+
+Track data modifications for incremental sync.
+
+#### `getLatestChange(model)` — Get most recent change
+
+```typescript
+const latest = await client.getLatestChange("datasets/gov/uzt/ldv/Vieta");
+if (latest) {
+  console.log(`Last change: ${latest._op} at ${latest._created}`);
+  console.log(`Change ID: ${latest._cid}`);
+}
+// Returns: ChangeEntry | null
+```
+
+#### `getChanges(model, sinceId?, limit?)` — Fetch changes
+
+Returns changes since a given change ID.
+
+```typescript
+const changes = await client.getChanges(
+  "datasets/gov/uzt/ldv/Vieta",
+  0, // Start from beginning
+  100 // Max 100 changes
+);
+// Returns: [{ _cid, _created, _op, _id, _data }, ...]
+```
+
+#### `streamChanges(model, sinceId?, pageSize?)` — Stream all changes
+
+Async iterator for processing all changes with automatic pagination.
+
+```typescript
+for await (const change of client.streamChanges(
+  "datasets/gov/uzt/ldv/Vieta",
+  lastKnownCid
+)) {
+  console.log(`${change._op}: ${change._id}`);
+}
+```
+
+---
+
+### QueryBuilder
+
+Build queries with a fluent API.
+
+```typescript
+import { QueryBuilder } from "lt-open-data-sdk";
+
+const query = new QueryBuilder()
+  .select("_id", "pavadinimas", "gyventoju_skaicius")
+  .filter((f) => f.field("gyventoju_skaicius").gt(10000))
+  .sort("pavadinimas")
+  .limit(50);
+
+const data = await client.getAll("datasets/gov/example/Model", query);
+```
+
+#### Filter Operators
 
 | Method             | Query                     | Description           |
 | ------------------ | ------------------------- | --------------------- |
@@ -68,212 +219,79 @@ const queryString = query.toQueryString();
 | `.ge(value)`       | `field>=value`            | Greater than or equal |
 | `.contains(str)`   | `field.contains("str")`   | Contains substring    |
 | `.startswith(str)` | `field.startswith("str")` | Starts with           |
+| `.endswith(str)`   | `field.endswith("str")`   | Ends with ⚠️          |
+| `.in([...])`       | `field.in(a,b,c)`         | Value in list ⚠️      |
+| `.notin([...])`    | `field.notin(a,b,c)`      | Value not in list ⚠️  |
 
-### Combining Filters
+> ⚠️ `endswith`, `in`, `notin` are in the Spinta spec but not yet supported by the live API.
+
+#### Combining Filters
 
 ```typescript
-// AND
-.filter(f => f.field('a').eq(1).and(f.field('b').eq(2)))
-// Output: a=1&b=2
+// AND - both conditions must match
+.filter(f => f.field('a').gt(10).and(f.field('b').lt(100)))
+// Output: a>10&b<100
 
-// OR
-.filter(f => f.field('a').eq(1).or(f.field('b').eq(2)))
-// Output: a=1|b=2
+// OR - either condition matches
+.filter(f => f.field('status').eq('active').or(f.field('status').eq('pending')))
+// Output: status="active"|status="pending"
 
-// Complex (OR inside AND - auto-wrapped in parentheses)
+// Complex - parentheses added automatically
 .filter(f => f.field('a').gt(10).and(
   f.field('b').eq(1).or(f.field('b').eq(2))
 ))
 // Output: a>10&(b=1|b=2)
 ```
 
+#### Sorting
+
+```typescript
+new QueryBuilder()
+  .sort("name") // Ascending
+  .sortDesc("created_at"); // Descending
+// Output: ?sort(name,-created_at)
+```
+
 ---
 
-## SpintaClient
+## CLI
+
+Generate TypeScript interfaces from live API data.
 
 ### Basic Usage
 
-```typescript
-const client = new SpintaClient();
-// Uses https://get.data.gov.lt by default
-```
-
-### Methods
-
-#### `getAll(model, query?)` - Fetch one page
-
-```typescript
-const cities = await client.getAll("datasets/gov/example/City", query);
-// Returns: Array of objects (unwrapped from _data)
-```
-
-> ⚠️ **Note**: Returns ONE page only. Use `stream()` for all records.
-
-#### `getAllRaw(model, query?)` - Fetch with metadata
-
-```typescript
-const response = await client.getAllRaw("datasets/gov/example/City", query);
-// Returns: { _type, _data: [...], _page: { next } }
-```
-
-#### `getOne(model, id)` - Fetch by UUID
-
-```typescript
-const city = await client.getOne("datasets/gov/example/City", "uuid-here");
-```
-
-#### `count(model, query?)` - Count records
-
-```typescript
-const total = await client.count("datasets/gov/example/City");
-const filtered = await client.count(
-  "datasets/gov/example/City",
-  new QueryBuilder().filter((f) => f.field("population").gt(100000))
-);
-```
-
-#### `stream(model, query?)` - Paginated iteration
-
-```typescript
-for await (const city of client.stream("datasets/gov/example/City")) {
-  console.log(city.pavadinimas);
-}
-```
-
-#### `listNamespace(namespace)` - List namespace contents
-
-```typescript
-const items = await client.listNamespace("datasets/gov/rc");
-// Returns: [{ _id: 'path', _type: 'ns' | 'model', title? }]
-```
-
-#### `discoverModels(namespace)` - Find all models recursively
-
-```typescript
-// Discover all available models in a namespace
-const models = await client.discoverModels("datasets/gov/rc/ar");
-console.log(`Found ${models.length} models`);
-
-for (const model of models) {
-  console.log(`${model.path} - ${model.title}`);
-}
-
-// Then generate types for a specific model:
-// npx lt-gen datasets/gov/rc/ar/savivaldybe -o ./types/savivaldybe.d.ts
-```
-
-Returns: `{ path, title?, namespace }[]`
-
----
-
-## Type Safety & Autocomplete
-
-The SDK provides full TypeScript support. The workflow is:
-
-1. **Generate types** for your dataset:
-
-   ```bash
-   npx lt-gen datasets/gov/rc/ar/savivaldybe -o ./types/savivaldybe.d.ts
-   ```
-
-2. **Import and use** in your code:
-
-   ```typescript
-   import { SpintaClient } from "lt-open-data-sdk";
-   import type { GovRcArSavivaldybe_Savivaldybe } from "./types/savivaldybe";
-
-   const client = new SpintaClient();
-
-   // Pass the type to the method to get full autocomplete!
-   const data = await client.getAll<GovRcArSavivaldybe_Savivaldybe>(
-     "datasets/gov/rc/ar/savivaldybe/Savivaldybe"
-   );
-
-   // ✅ TypeScript knows these fields exist:
-   console.log(data[0].pavadinimas); // string
-   console.log(data[0].sav_kodas); // number
-   ```
-
----
-
-## Pagination
-
-The API uses cursor-based pagination with `_page.next` tokens.
-
-### Automatic Pagination with `stream()`
-
-Use `stream()` to iterate through all records automatically:
-
-```typescript
-const query = new QueryBuilder().limit(100); // 100 items per page
-
-for await (const item of client.stream("datasets/gov/example/City", query)) {
-  console.log(item.pavadinimas);
-  // Automatically fetches next page when current page is exhausted
-}
-```
-
-**How it works:**
-
-1. Fetches first page with your query
-2. Yields items one by one
-3. When page exhausted, uses `_page.next` token to fetch next page
-4. Continues until no more pages
-
-### Manual Pagination with `getAllRaw()`
-
-For more control, handle pagination yourself:
-
-```typescript
-let pageToken: string | undefined;
-
-do {
-  // Build query with page token
-  let query = new QueryBuilder().limit(100);
-
-  const response = await client.getAllRaw("datasets/gov/example/City", query);
-
-  // Process this page
-  for (const item of response._data) {
-    console.log(item);
-  }
-
-  // Get next page token
-  pageToken = response._page?.next;
-
-  // Note: You need to add page(token) to next request manually
-  // This is handled automatically by stream()
-} while (pageToken);
-```
-
-> **Tip**: Use `stream()` for most cases. Use `getAllRaw()` when you need access to page metadata or custom page handling.
-
-## CLI Type Generator
-
-Generate TypeScript interfaces from live API metadata:
-
 ```bash
-# Install globally or use npx
+# Generate types for a dataset (prints to stdout)
 npx lt-gen datasets/gov/rc/ar/savivaldybe
 
-# Save to file
+# Save to a file
 npx lt-gen datasets/gov/rc/ar/savivaldybe -o ./types/savivaldybe.d.ts
 
-# Custom API URL
+# Use a different API endpoint
 npx lt-gen datasets/gov/rc/ar/savivaldybe --base-url https://get-test.data.gov.lt
 ```
+
+### Options
+
+| Option                | Description          |
+| --------------------- | -------------------- |
+| `-o, --output <file>` | Write output to file |
+| `--base-url <url>`    | Custom API base URL  |
+| `-h, --help`          | Show help            |
 
 ### Generated Output
 
 ```typescript
+// Generated from datasets/gov/rc/ar/savivaldybe/Savivaldybe
+
 export interface GovRcArSavivaldybe_Savivaldybe {
   _id: string;
   _type: string;
   _revision?: string;
   sav_kodas?: number;
   pavadinimas?: string;
-  apskritis?: string | { _id: string }; // ref type
-  sav_nuo?: string; // date
+  apskritis?: string | { _id: string };
+  sav_nuo?: string;
 }
 
 export interface ModelMap {
@@ -281,30 +299,22 @@ export interface ModelMap {
 }
 ```
 
-> **Note**: Types are inferred from data samples since schema endpoints require authentication.
-
----
-
-## Authentication _(Untested)_
-
-For write operations or private data, provide OAuth credentials:
+### Using Generated Types
 
 ```typescript
-const client = new SpintaClient({
-  clientId: "your-client-id",
-  clientSecret: "your-client-secret",
-  authUrl: "https://put.data.gov.lt", // optional, default
-  scopes: ["spinta_getone", "spinta_getall"], // optional
-});
+import { SpintaClient } from "lt-open-data-sdk";
+import type { GovRcArSavivaldybe_Savivaldybe } from "./types/savivaldybe";
+
+const client = new SpintaClient();
+
+// Full autocomplete on fields!
+const data = await client.getAll<GovRcArSavivaldybe_Savivaldybe>(
+  "datasets/gov/rc/ar/savivaldybe/Savivaldybe"
+);
+
+console.log(data[0].pavadinimas); // TypeScript knows this is string
+console.log(data[0].sav_kodas); // TypeScript knows this is number
 ```
-
-The SDK handles:
-
-- OAuth client credentials flow
-- Automatic token caching
-- Token refresh before expiry (5-minute buffer)
-
-> ⚠️ **Note**: Authentication has been implemented but not tested against a live auth server.
 
 ---
 
@@ -322,42 +332,37 @@ try {
   const data = await client.getOne("datasets/example", "invalid-id");
 } catch (error) {
   if (error instanceof NotFoundError) {
-    console.log("Not found:", error.message);
-  } else if (error instanceof AuthenticationError) {
-    console.log("Auth failed:", error.status);
+    console.log("Record not found");
   } else if (error instanceof ValidationError) {
-    console.log("Bad request:", error.body);
+    console.log("Invalid query:", error.message);
   }
 }
 ```
 
 ---
 
-## API Reference
+## Authentication
 
-### Exports
+For write operations or private datasets, provide OAuth credentials:
 
 ```typescript
-// Client
-export { SpintaClient } from "./client/SpintaClient";
-export {
-  SpintaError,
-  AuthenticationError,
-  NotFoundError,
-  ValidationError,
-} from "./client/errors";
-
-// Query Builder
-export { QueryBuilder } from "./builder/QueryBuilder";
-export { FilterBuilder } from "./builder/FilterBuilder";
-
-// Types
-export type {
-  ClientConfig,
-  SpintaResponse,
-  SpintaObject,
-} from "./client/types";
+const client = new SpintaClient({
+  clientId: "your-client-id",
+  clientSecret: "your-client-secret",
+});
 ```
+
+The SDK handles token caching and automatic refresh.
+
+> ⚠️ Authentication is implemented but untested against the live auth server.
+
+---
+
+## Known Limitations
+
+- **Boolean filtering** may not work on some datasets due to inconsistent data formats in the source
+- **`in()`, `notin()`, `endswith()`** operators are implemented but not yet supported by the live API
+- **Type inference** is based on data sampling, not schema (schema endpoints require auth)
 
 ---
 

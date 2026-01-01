@@ -70,6 +70,50 @@ describe('FilterBuilder', () => {
       const expr = fb.field('code').startswith('LT');
       expect(filterToString(expr.node)).toBe('code.startswith(%22LT%22)');
     });
+
+    it('endswith should generate endswith expression', () => {
+      const expr = fb.field('email').endswith('.lt');
+      expect(filterToString(expr.node)).toBe('email.endswith(%22.lt%22)');
+    });
+  });
+
+  describe('array operators', () => {
+    let fb: FilterBuilder<Record<string, unknown>>;
+
+    beforeEach(() => {
+      fb = new FilterBuilder();
+    });
+
+    it('in should generate in expression with multiple values', () => {
+      const expr = fb.field('status').in(['active', 'pending', 'review']);
+      expect(filterToString(expr.node)).toBe('status.in(%22active%22,%22pending%22,%22review%22)');
+    });
+
+    it('in should work with single value', () => {
+      const expr = fb.field('status').in(['active']);
+      expect(filterToString(expr.node)).toBe('status.in(%22active%22)');
+    });
+
+    it('in should work with numeric values', () => {
+      const expr = fb.field('priority').in([1, 2, 3]);
+      expect(filterToString(expr.node)).toBe('priority.in(1,2,3)');
+    });
+
+    it('notin should generate notin expression', () => {
+      const expr = fb.field('status').notin(['deleted', 'archived']);
+      expect(filterToString(expr.node)).toBe('status.notin(%22deleted%22,%22archived%22)');
+    });
+
+    it('notin should work with numeric values', () => {
+      const expr = fb.field('id').notin([0, -1]);
+      expect(filterToString(expr.node)).toBe('id.notin(0,-1)');
+    });
+
+    it('in should combine with AND', () => {
+      const expr = fb.field('status').in(['a', 'b'])
+        .and(fb.field('active').eq(true));
+      expect(filterToString(expr.node)).toBe('status.in(%22a%22,%22b%22)&active=true');
+    });
   });
 
   describe('value formatting', () => {
