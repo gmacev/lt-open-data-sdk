@@ -134,3 +134,23 @@ export interface ChangeEntry<T> {
 export interface ChangesResponse<T> {
   _data: ChangeEntry<T>[];
 }
+
+/**
+ * A bin from the /:summary endpoint histogram
+ * Represents a value range and the count of records in that range
+ */
+export interface SummaryBin {
+  /** The bin value (center or start of range) */
+  bin: number;
+  /** Number of records in this bin */
+  count: number;
+  /** Type of the model */
+  _type: string;
+  /** ID of a sample record in this bin (if count > 0) */
+  _id?: string;
+}
+
+/** Response wrapper for summary endpoint */
+export interface SummaryResponse {
+  _data: SummaryBin[];
+}

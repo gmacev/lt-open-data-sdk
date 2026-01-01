@@ -632,4 +632,33 @@ describe('SpintaClient', () => {
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('getSummary()', () => {
+    it('should fetch histogram for a numeric field', async () => {
+      const mockResponse = {
+        _data: [
+          { bin: 10.5, count: 5, _type: 'test/Model', _id: 'abc123' },
+          { bin: 20.5, count: 3, _type: 'test/Model', _id: 'def456' },
+          { bin: 30.5, count: 0, _type: 'test/Model' },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await client.getSummary('test/Model', 'value');
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://get.data.gov.lt/test/Model/:summary/value',
+        expect.anything()
+      );
+      expect(result).toHaveLength(3);
+      expect(result[0].bin).toBe(10.5);
+      expect(result[0].count).toBe(5);
+      expect(result[0]._id).toBe('abc123');
+      expect(result[2]._id).toBeUndefined();
+    });
+  });
 });

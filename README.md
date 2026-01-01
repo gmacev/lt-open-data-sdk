@@ -189,6 +189,21 @@ for await (const change of client.streamChanges(
 }
 ```
 
+#### `getSummary(model, field)` — Get histogram data
+
+Returns binned distribution for a numeric field. Useful for data profiling and visualization.
+
+```typescript
+const histogram = await client.getSummary(
+  "datasets/gov/rc/ar/savivaldybe/Savivaldybe",
+  "sav_kodas"
+);
+for (const bin of histogram) {
+  console.log(`Value ~${bin.bin}: ${bin.count} records`);
+}
+// Returns: [{ bin, count, _type, _id? }, ...]
+```
+
 ---
 
 ### QueryBuilder
