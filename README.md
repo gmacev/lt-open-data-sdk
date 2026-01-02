@@ -418,21 +418,22 @@ Add this to your MCP configuration file (`claude_desktop_config.json` or similar
 
 ### Available Tools
 
-| Tool               | Description                                              |
-| ------------------ | -------------------------------------------------------- |
-| **Metadata**       |                                                          |
-| `list_namespace`   | Browse dataset hierarchy (Start here!)                   |
-| `search_datasets`  | Find datasets by keyword (returns titles & descriptions) |
-| `describe_model`   | Get schema/fields for a dataset (auto-infers if needed)  |
-| `get_last_updated` | Check when a dataset was last modified                   |
-| **Data Access**    |                                                          |
-| `query_data`       | Query records with filtering, sorting, pagination        |
-| `count_records`    | Count records matching a filter                          |
-| `get_record`       | Fetch a single record by ID                              |
-| `get_sample_data`  | Get a small sample to inspect data structure             |
-| **Analysis**       |                                                          |
-| `get_summary`      | Get distribution histograms for numeric fields           |
-| `generate_types`   | Generate TypeScript interfaces for a dataset             |
+| Tool                   | Description                                              |
+| ---------------------- | -------------------------------------------------------- |
+| **Metadata**           |                                                          |
+| `list_namespace`       | Browse dataset hierarchy (Start here!)                   |
+| `search_datasets`      | Find datasets by keyword (returns titles & descriptions) |
+| `describe_model`       | Get schema/fields for a dataset (auto-infers if needed)  |
+| `get_last_updated`     | Check when a dataset was last modified                   |
+| **Data Access**        |                                                          |
+| `query_data`           | Query records with filtering, sorting, pagination        |
+| `count_records`        | Count records matching a filter                          |
+| `get_record`           | Fetch a single record by ID                              |
+| `get_sample_data`      | Get a small sample to inspect data structure             |
+| **Analysis**           |                                                          |
+| `get_summary`          | Get distribution histograms for numeric fields           |
+| `analyze_distribution` | Estimate field distribution via sampling (for strings)   |
+| `generate_types`       | Generate TypeScript interfaces for a dataset             |
 
 ### Example Agent Workflow
 
