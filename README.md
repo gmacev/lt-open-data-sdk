@@ -397,6 +397,53 @@ The SDK handles token caching and automatic refresh.
 
 ---
 
+## MCP Server (AI Agent Integration)
+
+This SDK exposes a **Model Context Protocol (MCP)** server, allowing AI agents (like Claude Desktop, Cursor, or other MCP clients) to directly access Lithuanian Open Data.
+
+### Setup
+
+Add this to your MCP configuration file (`claude_desktop_config.json` or similar):
+
+```json
+{
+  "mcpServers": {
+    "lt-open-data": {
+      "command": "npx",
+      "args": ["-y", "lt-open-data-sdk", "--mcp"]
+    }
+  }
+}
+```
+
+### Available Tools
+
+| Tool               | Description                                              |
+| ------------------ | -------------------------------------------------------- |
+| **Metadata**       |                                                          |
+| `list_namespace`   | Browse dataset hierarchy (Start here!)                   |
+| `search_datasets`  | Find datasets by keyword (returns titles & descriptions) |
+| `describe_model`   | Get schema/fields for a dataset (auto-infers if needed)  |
+| `get_last_updated` | Check when a dataset was last modified                   |
+| **Data Access**    |                                                          |
+| `query_data`       | Query records with filtering, sorting, pagination        |
+| `count_records`    | Count records matching a filter                          |
+| `get_record`       | Fetch a single record by ID                              |
+| `get_sample_data`  | Get a small sample to inspect data structure             |
+| **Analysis**       |                                                          |
+| `get_summary`      | Get distribution histograms for numeric fields           |
+| `generate_types`   | Generate TypeScript interfaces for a dataset             |
+
+### Example Agent Workflow
+
+1. **User:** "Find datasets about population in Vilnius"
+2. **Agent:**
+   - `search_datasets("population Vilnius")` → Finds `dataset/path`
+   - `describe_model("dataset/path")` → Sees fields `year`, `count`, `district`
+   - `query_data("dataset/path", filter="year=2024")` → Returns data
+
+---
+
 ## License
 
 MIT

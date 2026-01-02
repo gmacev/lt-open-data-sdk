@@ -22,12 +22,14 @@ import { SpintaClient } from '../client/SpintaClient.js';
 import { crawlNamespace, fetchAllModelsMetadata } from './crawler.js';
 import { generateDeclarationFile } from './generator.js';
 import { modelPathToInterfaceName } from './typeMapper.js';
+import { startMcpServer } from '../mcp/server.js';
 
 interface CliOptions {
   namespace: string;
   output: string | undefined;
   baseUrl: string;
   help: boolean;
+  mcp: boolean;
 }
 
 function parseArgs(args: readonly string[]): CliOptions {
@@ -36,6 +38,7 @@ function parseArgs(args: readonly string[]): CliOptions {
     output: undefined,
     baseUrl: 'https://get.data.gov.lt',
     help: false,
+    mcp: false,
   };
 
   let skipNext = false;
@@ -48,6 +51,8 @@ function parseArgs(args: readonly string[]): CliOptions {
 
     if (arg === '--help' || arg === '-h') {
       options.help = true;
+    } else if (arg === '--mcp') {
+      options.mcp = true;
     } else if (arg === '--output' || arg === '-o') {
       const nextArg = args[index + 1];
       if (nextArg !== undefined) {
@@ -81,18 +86,26 @@ Arguments:
 Options:
   --output, -o     Output file path (default: stdout)
   --base-url       Base URL for the API (default: https://get.data.gov.lt)
+  --mcp            Start MCP server for AI agent integration
   --help, -h       Show this help message
 
 Examples:
   lt-gen datasets/gov/ivpk/adk
   lt-gen datasets/gov/ivpk/adk -o ./types/adk.d.ts
-  lt-gen datasets/gov/ivpk/adk --base-url https://get-test.data.gov.lt
+  lt-gen --mcp                 # Start MCP server for AI agents
 `);
 }
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   const options = parseArgs(args);
+
+  // Handle MCP server mode
+  if (options.mcp) {
+    console.error('🚀 Starting MCP server...');
+    await startMcpServer();
+    return;
+  }
 
   if (options.help || options.namespace === '') {
     showHelp();

@@ -286,7 +286,7 @@ describe('SpintaClient', () => {
         json: async () => ({
           _data: [
             { name: 'datasets/gov/test/:ns', title: 'Test Namespace', description: '' },
-            { name: 'datasets/gov/test/Model', title: 'Test Model', description: '' },
+            { name: 'datasets/gov/test/Model', title: 'Test Model', description: 'Test Description' },
           ],
         }),
       });
@@ -303,11 +303,13 @@ describe('SpintaClient', () => {
         _id: 'datasets/gov/test',
         _type: 'ns',
         title: 'Test Namespace',
+        description: '',
       });
       expect(result[1]).toEqual({
         _id: 'datasets/gov/test/Model',
         _type: 'model',
         title: 'Test Model',
+        description: 'Test Description',
       });
     });
 
