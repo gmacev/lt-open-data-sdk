@@ -279,9 +279,10 @@ export class SpintaClient {
    * Discover all models within a namespace (recursively)
    *
    * Traverses the namespace hierarchy and returns all model paths found.
-   * Useful for exploring what data is available in a given area.
+   * Uses parallel fetching for sibling namespaces to improve performance.
    *
    * @param namespace - Starting namespace path (e.g., 'datasets/gov/rc')
+   * @param concurrency - Max concurrent requests (default 5)
    * @returns Array of discovered models with path and title
    *
    * @example
@@ -294,12 +295,28 @@ export class SpintaClient {
    * }
    * ```
    */
-  async discoverModels(namespace: string): Promise<DiscoveredModel[]> {
+  async discoverModels(namespace: string, concurrency = 8): Promise<DiscoveredModel[]> {
     const models: DiscoveredModel[] = [];
+    const minRequestIntervalMs = 50; // Minimum 50ms between any two request starts
+    let lastRequestTime = 0;
+
+    const throttledFetch = async (ns: string): Promise<NamespaceItem[]> => {
+      // Ensure minimum interval between requests
+      const now = Date.now();
+      const elapsed = now - lastRequestTime;
+      if (elapsed < minRequestIntervalMs) {
+        await new Promise(resolve => setTimeout(resolve, minRequestIntervalMs - elapsed));
+      }
+      lastRequestTime = Date.now();
+      return this.listNamespace(ns);
+    };
 
     const traverse = async (ns: string): Promise<void> => {
-      const items = await this.listNamespace(ns);
+      const items = await throttledFetch(ns);
 
+      // Separate models from sub-namespaces
+      const subNamespaces: string[] = [];
+      
       for (const item of items) {
         if (item._type === 'model') {
           models.push({
@@ -308,9 +325,14 @@ export class SpintaClient {
             namespace: ns,
           });
         } else {
-          // Recurse into sub-namespace
-          await traverse(item._id);
+          subNamespaces.push(item._id);
         }
+      }
+
+      // Process sub-namespaces in parallel batches
+      for (let i = 0; i < subNamespaces.length; i += concurrency) {
+        const batch = subNamespaces.slice(i, i + concurrency);
+        await Promise.all(batch.map(subNs => traverse(subNs)));
       }
     };
 

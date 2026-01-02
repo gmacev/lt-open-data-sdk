@@ -58,7 +58,19 @@ export function registerMetadataTools(server: McpServer): void {
       },
     },
     async ({ query, namespace, max_results }) => {
-      const models = await client.discoverModels(namespace);
+      let models;
+      try {
+        models = await client.discoverModels(namespace);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return { 
+          content: [{ 
+            type: 'text' as const, 
+            text: `Error searching datasets: ${message}. This may be due to API rate limiting or network issues. Try again in a few seconds or narrow the namespace (e.g., "datasets/gov/rc" instead of "datasets/gov").` 
+          }] 
+        };
+      }
+      
       const queryLower = query.toLowerCase();
       
       const matches = models
