@@ -189,7 +189,7 @@ export function registerMetadataTools(server: McpServer): void {
   server.registerTool(
     'get_summary',
     {
-      description: 'Get a histogram/distribution for a numeric field. Shows value ranges and counts with percentages.',
+      description: 'Get a histogram/distribution for a numeric field (Server-side). Shows value ranges and counts with percentages.',
       inputSchema: {
         model: z.string().describe('Full dataset path'),
         field: z.string().describe('Numeric field name to summarize'),
@@ -215,6 +215,91 @@ export function registerMetadataTools(server: McpServer): void {
         content: [{ 
           type: 'text' as const, 
           text: `Distribution of "${field}" (${String(total)} total records):\n${lines.join('\n')}`
+        }],
+      };
+    }
+  );
+
+  // analyze_distribution - Client-side sampling for strings/categorical
+  server.registerTool(
+    'analyze_distribution',
+    {
+      description: 
+        'Analyze the distribution of values for a field by sampling data. ' +
+        'Use this for categorical fields (strings) to find "Top N" values, or when get_summary fails. ' +
+        'Note: Results are ESTIMATES based on a sample.',
+      inputSchema: {
+        model: z.string().describe('Full dataset path'),
+        field: z.string().describe('Field name to analyze (e.g., "category", "city")'),
+        sample_size: z.number().default(1000).describe('Number of records to sample (max 500000)'),
+      },
+    },
+    async ({ model, field, sample_size }) => {
+      const limit = Math.min(sample_size, 500000);
+      const query = new QueryBuilder().limit(limit);
+      
+      // Try to fetch latest data if possible (though default is random/insertion order often)
+      // We can't easily sort by date without knowing the date field, so we just take default order.
+      
+      const data = await client.getAll(model, query);
+      
+      if (data.length === 0) {
+        return { content: [{ type: 'text' as const, text: 'No data found to sample.' }] };
+      }
+      
+      // Aggregate locally
+      const counts = new Map<string | number, number>();
+      let validCount = 0;
+      
+      for (const record of data) {
+        if (field in record) {
+          const value = record[field];
+          if (value !== null && value !== undefined) {
+            let key = 'undefined';
+            
+            if (typeof value === 'string') {
+               key = value;
+            } else if (typeof value === 'number' || typeof value === 'boolean') {
+               key = String(value);
+            } else {
+               try {
+                 // JSON.stringify can return undefined
+                 const json = JSON.stringify(value);
+                 if (json) {
+                   key = json;
+                 }
+               } catch {
+                 key = 'Error: Value cannot be stringified';
+               }
+            }
+            
+            counts.set(key, (counts.get(key) ?? 0) + 1);
+            validCount++;
+          }
+        }
+      }
+      
+      if (validCount === 0) {
+        return { content: [{ type: 'text' as const, text: `Field "${field}" not found or empty in sample of ${String(data.length)} records.` }] };
+      }
+      
+      // Sort by frequency
+      const sorted = Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 100); // Top 100
+        
+      const lines = sorted.map(([val, count]) => {
+        const pct = ((count / validCount) * 100).toFixed(1);
+        // Truncate very long values
+        const stringVal = String(val);
+        const displayVal = stringVal.length > 100 ? stringVal.slice(0, 100) + '...' : stringVal;
+        return `  ${displayVal}: ${String(count)} (${pct}%)`;
+      });
+      
+      return {
+        content: [{ 
+          type: 'text' as const, 
+          text: `Distribution of "${field}" (based on sample of ${String(data.length)} records):\n${lines.join('\n')}`
         }],
       };
     }
