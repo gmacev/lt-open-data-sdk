@@ -270,6 +270,7 @@ export class SpintaClient {
         _id: cleanPath,
         _type: isNamespace ? 'ns' : 'model',
         title: item.title,
+        description: item.description,
       };
     });
   }
@@ -497,5 +498,6 @@ interface NamespaceItem {
   _id: string;
   _type: 'ns' | 'model';
   title?: string;
+  description?: string;
 }
 
