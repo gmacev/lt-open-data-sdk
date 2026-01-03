@@ -14,7 +14,8 @@ Lithuania publishes thousands of government datasets through its Open Data Porta
 ### Quick Links
 
 - [📡 API Reference](#api) - Client methods and query builder
-- [⌨️ CLI Reference](#cli) - Type generation commands
+
+- [🛠️ CLI Reference](#cli-tools)
 
 ---
 
@@ -128,6 +129,23 @@ for await (const municipality of client.stream(
 ```
 
 > ⚠️ **Do not use `.select()` with `stream()`**. The API does not return pagination tokens when field projection is used, causing the stream to stop after the first page (100 items).
+
+#### `streamWithRetry(model, query?, options?)` — Resilient streaming
+
+Similar to `stream()`, but automatically retries when the API rate limit (HTTP 429) is exceeded. Useful for heavy data extraction or CLIs.
+
+```typescript
+for await (const item of client.streamWithRetry(
+  "datasets/gov/rc/espbiis/receptai_2024/Receptas",
+  undefined, // query
+  {
+    maxAttempts: 10,
+    initialBackoffMs: 2000,
+  }
+)) {
+  // Process data...
+}
+```
 
 ### Discovery
 
@@ -285,7 +303,71 @@ new QueryBuilder()
 
 ---
 
-## CLI
+## CLI Tools
+
+The package includes two CLI executables:
+
+- **`lt-data`**: Interactive data explorer and downloader
+- **`lt-gen`**: TypeScript interface generator
+
+### Data Access (`lt-data`)
+
+Query, inspect, and stream Open Data directly from your terminal.
+
+#### Common Commands
+
+```bash
+# Search for datasets
+npx lt-data search "population"
+
+# Inspect dataset structure (fields/types)
+npx lt-data describe datasets/gov/rc/ar/savivaldybe/Savivaldybe
+
+# List contents of a namespace
+npx lt-data list datasets/gov/rc
+```
+
+#### Querying Data
+
+Fetches data with rich filtering capabilities.
+
+```bash
+# Basic query (default limit: 100)
+npx lt-data query datasets/gov/rc/ar/savivaldybe/Savivaldybe
+
+# Filter and sort
+npx lt-data query datasets/gov/rc/ar/savivaldybe/Savivaldybe \
+  --filter "sav_kodas>50" \
+  --sort "-pavadinimas" \
+  --select sav_kodas,pavadinimas
+
+# Output formats: json (default), ndjson, csv
+npx lt-data query ... --format csv
+```
+
+#### Streaming & Exporting
+
+Designed for reliability when downloading large datasets. Ideal for piping or saving to files.
+
+```bash
+# Stream millions of records to a file (automatic pagination + retries)
+npx lt-data query <model> --stream --format ndjson -o dump.ndjson
+
+# Export to CSV (adds BOM for Excel compatibility)
+npx lt-data query <model> --stream --format csv -o dump.csv
+
+# Stream with filtering (download only specific records)
+npx lt-data query datasets/gov/rc/espbiis/receptai_2024/Receptas \
+  --stream \
+  --filter "recepto_metai=2024" \
+  --limit 100 \
+  --format ndjson \
+  -o data_2024.ndjson
+```
+
+> ⚠️ **Limitation**: The `--select` flag is **not supported** in streaming mode. The API does not provide pagination tokens when field projection is used. If you need specific fields, stream the full records and filter them locally (e.g., using `jq` or `cut`).
+
+### Type Generation (`lt-gen`)
 
 Generate TypeScript interfaces from live API data.
 
@@ -392,7 +474,7 @@ The SDK handles token caching and automatic refresh.
 ## Known Limitations
 
 - **Boolean filtering** may not work on some datasets due to inconsistent data formats in the source
-- **`in()`, `notin()`, `endswith()`** operators are implemented but not yet supported by the live API
+- **`in()`, `notin()`, `endswith()`** are supported by the CLI parser and SDK builder, but the `data.gov.lt` API backend does not yet support them (returns 400).
 - **Type inference** is based on data sampling, not schema (schema endpoints require auth)
 
 ---

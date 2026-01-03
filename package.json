@@ -1,6 +1,6 @@
 {
   "name": "lt-open-data-sdk",
-  "version": "1.1.6",
+  "version": "1.2.0",
   "description": "TypeScript SDK for the Lithuanian Open Data platform (data.gov.lt)",
   "type": "module",
   "main": "dist/index.js",
@@ -12,11 +12,12 @@
     }
   },
   "bin": {
-    "lt-gen": "./dist/cli/index.js"
+    "lt-gen": "./dist/cli/index.js",
+    "lt-data": "./dist/cli/data.js"
   },
   "scripts": {
     "build": "tsc",
-    "postbuild": "node -e \"try{require('fs').chmodSync('dist/cli/index.js',0o755)}catch{}\"",
+    "postbuild": "node -e \"try{const fs=require('fs');fs.chmodSync('dist/cli/index.js',0o755);fs.chmodSync('dist/cli/data.js',0o755);}catch{}\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src",
@@ -68,6 +69,7 @@
   ],
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1",
+    "picocolors": "^1.1.1",
     "zod": "^4.3.4"
   }
 }
