@@ -134,7 +134,8 @@ function inferType(value: unknown): string {
  */
 export async function fetchModelMetadata(
   _client: SpintaClient,
-  modelPath: string
+  modelPath: string,
+  suppressErrors = true
 ): Promise<ModelMetadata> {
   // Fetch sample records to infer property types
   // Limit to 10 records to increase chance of finding non-null values
@@ -204,6 +205,9 @@ export async function fetchModelMetadata(
       properties,
     };
   } catch (error) {
+    if (!suppressErrors) {
+      throw error;
+    }
     // Return minimal metadata on error
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`Warning: Could not fetch data for ${modelPath}: ${errorMessage}`);

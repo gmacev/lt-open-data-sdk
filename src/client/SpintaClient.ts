@@ -36,8 +36,8 @@ import type {
   SummaryResponse,
 } from './types.js';
 import { TokenCache } from './auth.js';
-import { handleErrorResponse } from './errors.js';
-import type { QueryBuilder } from '../builder/QueryBuilder.js';
+import { handleErrorResponse, SpintaError } from './errors.js';
+import { QueryBuilder } from '../builder/QueryBuilder.js';
 
 /** Default configuration values */
 const DEFAULT_BASE_URL = 'https://get.data.gov.lt';
@@ -160,6 +160,24 @@ export class SpintaClient {
   }
 
   /**
+   * Get a single page with optional page token (used for streaming with retry)
+   */
+  async getPageRaw<T>(
+    model: string,
+    query?: QueryBuilder<T>,
+    pageToken?: string
+  ): Promise<SpintaResponse<T>> {
+    const path = `/${model}`;
+    const baseQuery = query?.toQueryString() ?? '';
+    const queryString =
+      pageToken === undefined
+        ? baseQuery
+        : `${baseQuery}${baseQuery === '' ? '?' : '&'}page("${pageToken}")`;
+
+    return this.request<SpintaResponse<T>>(path, queryString);
+  }
+
+  /**
    * Stream all objects with automatic pagination
    *
    * Implements an async iterator that automatically fetches subsequent pages
@@ -211,6 +229,63 @@ export class SpintaClient {
       // Get next page token
       pageToken = response._page?.next;
     } while (pageToken !== undefined);
+  }
+
+  /**
+   * Stream with retry/backoff support (exposed for CLI/advanced use).
+   * Retries HTTP 429 with exponential backoff up to maxAttempts.
+   */
+  async *streamWithRetry<T>(
+    model: string,
+    query?: QueryBuilder<T>,
+    options?: {
+      pageSize?: number;
+      initialBackoffMs?: number;
+      maxBackoffMs?: number;
+      maxAttempts?: number;
+      noRetry?: boolean;
+    }
+  ): AsyncGenerator<T & SpintaObject, void, undefined> {
+    const pageSize = options?.pageSize ?? 100;
+    const initialBackoffMs = options?.initialBackoffMs ?? 1000;
+    const maxBackoffMs = options?.maxBackoffMs ?? 30000;
+    const maxAttempts = options?.maxAttempts ?? 5;
+    const noRetry = options?.noRetry ?? false;
+
+    let backoffMs = initialBackoffMs;
+    let attempts = 0;
+    let pageToken: string | undefined;
+
+    // Clone to avoid mutating caller query; enforce page size.
+    const pageQuery = (query?.clone() ?? new QueryBuilder<T>()).limit(pageSize);
+
+    let hasMore = true;
+    while (hasMore) {
+      try {
+        const response = await this.getPageRaw<T>(model, pageQuery, pageToken);
+
+        for (const item of response._data) {
+          yield item;
+        }
+
+        pageToken = response._page?.next;
+        attempts = 0;
+        backoffMs = initialBackoffMs;
+
+        if (pageToken === undefined) {
+          hasMore = false;
+          break;
+        }
+      } catch (error) {
+        if (!noRetry && isRateLimitError(error) && attempts < maxAttempts) {
+          attempts++;
+          await sleep(backoffMs);
+          backoffMs = Math.min(backoffMs * 2, maxBackoffMs);
+          continue;
+        }
+        throw error;
+      }
+    }
   }
 
   /**
@@ -295,7 +370,7 @@ export class SpintaClient {
    * }
    * ```
    */
-  async discoverModels(namespace: string, concurrency = 8): Promise<DiscoveredModel[]> {
+  async discoverModels(namespace: string, concurrency = 5): Promise<DiscoveredModel[]> {
     const models: DiscoveredModel[] = [];
     const minRequestIntervalMs = 50; // Minimum 50ms between any two request starts
     let lastRequestTime = 0;
@@ -491,6 +566,14 @@ export class SpintaClient {
     const response = await this.request<SummaryResponse>(path);
     return response._data;
   }
+}
+
+function isRateLimitError(error: unknown): boolean {
+  return error instanceof SpintaError && error.status === 429;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Discovered model from namespace traversal */
