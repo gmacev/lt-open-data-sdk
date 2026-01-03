@@ -698,4 +698,63 @@ describe('SpintaClient', () => {
       expect(result).toBeNull();
     });
   });
+
+
+  describe('streamWithRetry()', () => {
+    it('should stream data with pagination', async () => {
+      // Mock page 1
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ _data: [{ id: 1 }], _page: { next: 'page2' } }),
+      });
+      // Mock page 2
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ _data: [{ id: 2 }] }), // No next page
+      });
+
+      const results = [];
+      for await (const item of client.streamWithRetry('test/Model')) {
+        results.push(item);
+      }
+      expect(results).toHaveLength(2);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should retry on 429 errors', async () => {
+      // Page 1 success
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ _data: [{ id: 1 }], _page: { next: 'page2' } }),
+      });
+
+      // Page 2 fail (429) - simulated SpintaError structure handling
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        text: async () => JSON.stringify({ error: { code: 429, message: 'Rate limit' } }),
+        json: async () => ({ error: { code: 429, message: 'Rate limit' } }),
+      });
+
+      // Page 2 retry success
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ _data: [{ id: 2 }] }),
+      });
+
+      const results = [];
+      const generator = client.streamWithRetry('test/Model', undefined, {
+        initialBackoffMs: 1, // Fast retry
+        maxAttempts: 3,
+      });
+
+      for await (const item of generator) {
+        results.push(item);
+      }
+
+      expect(results).toHaveLength(2);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+  });
 });
