@@ -1,6 +1,6 @@
 {
   "name": "lt-open-data-sdk",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "TypeScript SDK for the Lithuanian Open Data platform (data.gov.lt)",
   "type": "module",
   "main": "dist/index.js",
@@ -13,7 +13,8 @@
   },
   "bin": {
     "lt-gen": "./dist/cli/index.js",
-    "lt-data": "./dist/cli/data.js"
+    "lt-data": "./dist/cli/data.js",
+    "lt-open-data-sdk": "./dist/cli/data.js"
   },
   "scripts": {
     "build": "tsc",

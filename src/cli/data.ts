@@ -88,6 +88,8 @@ function parseArgs(args: readonly string[]): ParsedArgs {
       result.options.noColor = true;
     } else if (arg === '--no-retry') {
       result.options.noRetry = true;
+    } else if (arg === '--mcp') {
+      result.command = 'mcp';
     } else if (arg === '--stream') {
       result.stream = true;
     } else if (arg === '--base-url' && nextArg !== undefined) {
